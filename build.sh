@@ -25,14 +25,19 @@ download_chromeos() {
     local code_name=$1
     local url="https://cros.tech/device/${code_name}"
 
-    local response=$(curl -s "$url")
+    echo "Fetching available builds for $code_name..."
+    local response=$(curl -sL "$url")
 
-    local link=$(echo "$response" | sed -n 's/.*<a[^>]*href="\([^"]*dl\.google\.com[^"]*\.zip\)".*/\1/p' | head -n1)
+    # Extract all matching dl.google.com zip links
+    local link=$(echo "$response" | grep -oE 'https://[^"]*dl\.google\.com[^"]*\.zip' | sort -V | tail -n1)
 
-    [ -z "$link" ] && { echo "No valid links found"; exit 1; }
+    if [ -z "$link" ]; then
+        echo "No valid links found for $code_name"
+        exit 1
+    fi
 
     echo "Downloading Chrome OS for $code_name"
-    aria2c -x 16 -o chromeos.zip "$link" || { echo "Download failed"; exit 1; }
+    aria2c --console-log-level=warn --summary-interval=1 -x 16 -o chromeos.zip "$link"
 
     unzip -o chromeos.zip -d chromeos
     rm -f chromeos.zip
